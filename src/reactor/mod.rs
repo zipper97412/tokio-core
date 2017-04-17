@@ -31,6 +31,7 @@ mod timeout_token;
 mod poll_evented;
 mod timeout;
 mod interval;
+mod dyn_interval;
 pub use self::poll_evented::PollEvented;
 pub use self::timeout::Timeout;
 pub use self::interval::Interval;

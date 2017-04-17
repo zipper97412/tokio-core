@@ -4,7 +4,6 @@
 //! resolve at a fixed intervals in future
 
 use std::io;
-use std::cell;
 use std::time::{Duration, Instant};
 
 use futures::{Poll, Async};
@@ -25,19 +24,19 @@ use reactor::timeout_token::TimeoutToken;
 pub struct DynInterval {
     token: TimeoutToken,
     next: Instant,
-    interval: Cell<Duration>,
+    interval: Duration,
     handle: Remote,
 }
 
-impl Interval {
+impl DynInterval {
     /// Creates a new interval which will fire at `dur` time into the future,
     /// and will repeat every `dur` interval after
     ///
     /// This function will return a future that will resolve to the actual
     /// interval object. The interval object itself is then a stream which will
     /// be set to fire at the specified intervals
-    pub fn new(dur: Duration, handle: &Handle) -> io::Result<Interval> {
-        Interval::new_at(Instant::now() + dur, dur, handle)
+    pub fn new(dur: Duration, handle: &Handle) -> io::Result<DynInterval> {
+        DynInterval::new_at(Instant::now() + dur, dur, handle)
     }
 
     /// Creates a new interval which will fire at the time specified by `at`,
@@ -47,31 +46,34 @@ impl Interval {
     /// timeout object. The timeout object itself is then a future which will be
     /// set to fire at the specified point in the future.
     pub fn new_at(at: Instant, dur: Duration, handle: &Handle)
-        -> io::Result<Interval>
+        -> io::Result<DynInterval>
     {
-        Ok(Interval {
+        Ok(DynInterval {
             token: try!(TimeoutToken::new(at, &handle)),
             next: at,
-            interval: Cell::new(dur),
+            interval: dur,
             handle: handle.remote().clone(),
         })
     }
     
-    pub fn set_interval(dur: Duration) {
+    /// Set the interval to that duration, the next fire is cancelled and will be
+    /// set to the current instant + the new duration
+    pub fn set_interval(&mut self, dur: Duration) {
         let now = Instant::now();
-        interval.set(dur);
+        self.interval = dur;
         self.next = now + dur;
         self.token.reset_timeout(self.next, &self.handle);
     }
     
-    pub fn get_interval() -> Instant {
-        interval.get()
+    /// Get the current interval value
+    pub fn get_interval(&self,) -> Duration {
+        self.interval
     }
     
     
 }
 
-impl Stream for Interval {
+impl Stream for DynInterval {
     type Item = ();
     type Error = io::Error;
 
@@ -79,7 +81,7 @@ impl Stream for Interval {
         // TODO: is this fast enough?
         let now = Instant::now();
         if self.next <= now {
-            self.next = next_interval(self.next, now, self.interval.get());
+            self.next = next_interval(self.next, now, self.interval);
             self.token.reset_timeout(self.next, &self.handle);
             Ok(Async::Ready(Some(())))
         } else {
@@ -89,7 +91,7 @@ impl Stream for Interval {
     }
 }
 
-impl Drop for Interval {
+impl Drop for DynInterval {
     fn drop(&mut self) {
         self.token.cancel_timeout(&self.handle);
     }
