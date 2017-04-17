@@ -34,6 +34,7 @@ mod interval;
 pub use self::poll_evented::PollEvented;
 pub use self::timeout::Timeout;
 pub use self::interval::Interval;
+pub use self::dyn_interval::DynInterval;
 
 static NEXT_LOOP_ID: AtomicUsize = ATOMIC_USIZE_INIT;
 scoped_thread_local!(static CURRENT_LOOP: Core);
